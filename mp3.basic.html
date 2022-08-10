@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="./mp3-basic.css" />
+    <script
+      src="https://kit.fontawesome.com/9f03ee609a.js"
+      crossorigin="anonymous"
+    ></script>
+    <!-- font-family -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300&display=swap"
+      rel="stylesheet"
+    />
+
+    <title>mp3-basic</title>
+  </head>
+  <body>
+    <main class="main">
+      <section class="dash-board">
+        <!-- Tên bài hát -->
+        <header>
+          <p>Now playing:</p>
+          <h1>Tên bài hát</h1>
+        </header>
+
+        <!-- Đĩa CD -->
+        <div class="cd">
+          <div class="cd-thumb"></div>
+        </div>
+
+        <!-- Control -->
+        <footer>
+          <div class="btn-repeat">
+            <i class="fa-solid fa-arrow-rotate-right"></i>
+          </div>
+          <div class="btn-prev">
+            <i class="fa-solid fa-backward-step"></i>
+          </div>
+          <div class="btn-play">
+            <i class="fa-solid fa-circle-play"></i>
+          </div>
+          <div class="btn-next">
+            <i class="fa-solid fa-forward-step"></i>
+          </div>
+          <div class="btn-random">
+            <i class="fa-solid fa-shuffle"></i>
+          </div>
+        </footer>
+
+        <!-- Thanh tiến độ -->
+        <input
+          class="progress-bar"
+          type="range"
+          name="progression"
+          value="0"
+          min="1"
+          max="100"
+        />
+        <audio id="audio" src=""></audio>
+      </section>
+      <!-- nửa dưới -->
+      <section class="song-list"></section>
+      <!-- song-option -->
+    </main>
+
+    <script>
+      /*
+       * 1. Render Song                    ok
+       * 2. Scroll top                     ok
+       * 3. Play / Pause / Seek            ok
+       * 4. CD rotate                      ok
+       * 5. Next / Previous                ok
+       * 6. Random Song                    ok
+       * 7. Next / Repeat when Ended       ok
+       * 8. Active Song                    ok
+       * 9. Scroll active song interviewingok
+       * 10. Play Song when clicked        ok
+       * 11. create a Config to save the change
+       *     ý tưởng:
+       *     1. Tạo biến config type Object chứa các cặp key/value
+       *        là trạng thái của isRandom/isRepeat
+       *     2. khi trạng thái thay đổi thì lưu vào config,
+       *        config sẽ lưu vào localStorage
+       *     3. Khi mở app thì load config bằng cách đọc từ localStorage
+       *        và hợp nhất với trạng thái hiện tại
+       * */
+
+      const $ = document.querySelector.bind(document);
+      const $$ = document.querySelectorAll.bind(document);
+
+      const PLAYER_STORAGE_KEY = "MP3";
+
+      const headingSongName = $(".dash-board header h1");
+      const audio = $("#audio");
+      const cdDisk = $(".cd");
+      const btnPlay = $(".btn-play i");
+      const btnNext = $(".btn-next i");
+      const btnPrev = $(".btn-prev i");
+      const btnRepeat = $(".btn-repeat i");
+      const btnRandom = $(".btn-random i");
+      const progressBar = $(".progress-bar");
+      const songList = $(".song-list");
+
+      let musicApp = {
+        isRandom: false,
+        isRepeat: false,
+        isPlaying: false,
+        songs: [
+          {
+            name: "Grand",
+            songUrl: "./musics/Grand - Kane Brown (1).mp3",
+            artist: "Kane Brown",
+            image: "./images/kane-brown.jpg",
+          },
+          {
+            name: "As It Was",
+            songUrl: "./musics/As It Was - Harry Styles.mp3",
+            artist: "Harry Styles",
+            image: "./images/harry-style.jpg",
+          },
+          {
+            name: "Wait For you",
+            songUrl: "./musics/Wait For You - Dannic_ Shermanology.mp3",
+            artist: "Future, Drake, Tems",
+            image: "./images/future-drake-tems.jpg",
+          },
+          {
+            name: "Me Porto Bonito",
+            songUrl: "./musics/Me Porto Bonito - Bad Bunny_ Chencho Cor.mp3",
+            artist: "Bad-Bunny, Chencho, Corleone",
+            image: "./images/badbuny-chencho.jpg",
+          },
+          {
+            name: "Break my soul",
+            songUrl: "./musics/Break My Soul - Beyonce.mp3",
+            artist: "Beyonce",
+            image: "./images/beyonce.jpg",
+          },
+          {
+            name: "Big Energy",
+            songUrl: "./musics/Energy - Jung Yong Hwa_ Verbal Jint.mp3",
+            artist: "Latto",
+            image: "./images/latto.jpg",
+          },
+          {
+            name: "Late Night Talking",
+            songUrl: "./musics/Late Night Talking - Harry Styles.mp3",
+            artist: "Harry Styles",
+            image: "./images/harry-style.jpg",
+          },
+          {
+            name: "Tití Me pregunta",
+            songUrl: "./musics/Pregunta Loca - Sofia Reyes.mp3",
+            artist: "bad Bunny",
+            image: "./images/badBunny.jpg",
+          },
+          {
+            name: "STAY",
+            songUrl: "./musics/Stay - The Kid LAROI_ Justin Bieber.mp3",
+            artist: "The kid LAROI, Justin Bieber",
+            image: "./images/kid-laroi-justin-beiber.jpg",
+          },
+          {
+            name: "Sunroof",
+            songUrl: "./musics/Sunroof - Nicky Youre_ Dazy.mp3",
+            artist: "Nicky Youre, Dazy",
+            image: "./images/nicky-your-dazzy.jpg",
+          },
+        ],
+        currentIndex: 0,
+        config: {},
+        //save the changes
+        setConfig: function(key, value) {
+          this.config[key] = value;
+          localStorage.setItem(PLAYER_STORAGE_KEY, JSON.stringify(this.config));
+        },
+
+        loadConfig: function () {
+          //1. Trường hợp phát nhạc lần đầu tiên, localStorage = null,
+          //thì config = {}, isRandom vs isRepeat chạy như chưa có config
+          //2. Trường hợp localStorage có giá trị thì localStorage = config
+          //gán config vào isRepeat vs israndom
+          if (JSON.parse(localStorage.getItem(PLAYER_STORAGE_KEY))) {
+            this.config = JSON.parse(localStorage.getItem(PLAYER_STORAGE_KEY));
+
+            this.isRandom = this.config.isRandom;
+            btnRandom.classList.toggle("btn-style", this.isRandom);
+            this.isRepeat = this.config.isRepeat;
+            btnRepeat.classList.toggle("btn-style", this.isRepeat);
+          } else {
+            this.config = {};
+          };
+        },
+
+        //1. Render Song
+        render: function () {
+          // const _this = this;
+          const html = this.songs.map((element, index) => {
+            return `
+               <section class="song-items" data-index="${index}">
+                  <header class="logo" style="background-image: url(${element.image})""></header>
+                  <div class="infor">
+                     <div>${element.name}</div>
+                     <p>${element.artist}</p>
+                  </div>
+                  <div class="option">
+                     <i class="fa-solid fa-ellipsis"></i>
+                     <div class="song-option">
+                        <header class="song-option-infor">
+                           <div class="song-option-infor-avatar" style="background-image: url(${element.image}"></div>
+                           <div class="song-option-infor-name">
+                              <h4>${element.name}</h4>
+                              <i class="fa-regular fa-heart"> 404 </i>
+                              <i class="fa-solid fa-headphones-simple"> 402 </i>
+                           </div>
+                        </header>
+                        <div class="song-option-cross-bar">
+                           <span>
+                              <i class="fa-solid fa-download"></i>
+                              <p>Tải xuống</p>
+                           </span>
+                           <span>
+                              <i class="fa-solid fa-receipt"></i>
+                              <p>Lời bài hát</p>
+                           </span>
+                           <span>
+                              <i class="fa-solid fa-ban"></i>
+                              <p>Chặn</p>
+                           </span>
+                        </div>
+                        <div>
+                           <ul class="song-option-list">
+                              <li>
+                                 <i class="fa-regular fa-heart"></i>
+                                 Thêm vào thư viện
+                              </li>
+                              <li>
+                                 <i class="fa-solid fa-circle-plus"></i>
+                                 Thêm vào danh sách phát
+                              </li>
+                              <li>
+                                 <i class="fa-solid fa-link"></i>
+                                 Sao chép link
+                              </li>
+                              <li>
+                                 <i class="fa-regular fa-share-from-square"></i>
+                                 Chia sẻ
+                              </li>
+                           </ul>
+                        </div>
+                     </div>
+                  </div>
+               </section>
+               `;
+          });
+          songList.innerHTML = html.join("");
+        },
+        //2. scroll top
+        scrollTop: function () {
+          //Xử lý zoom CD khi Scroll
+          //Kỹ thuật Padding-top: dùng để fix ảnh vừa với mọi kích thước, và chỉ cần đặt kích thước cho width
+          //bằng việc tạo 2 thẻ div cha con, thẻ con sẽ chứa ảnh, kích thước sẽ phụ thuộc vào width của cha
+          //thẻ con sẽ width = 100%, height = padding-top: (height/width của ảnh)
+          //--> vì padding-top của con sẽ chạy dựa trên width của cha
+
+          const cdDiskWidth = cdDisk.offsetWidth; //cd width mặc định:
+          document.onscroll = function () {
+            const scrollTop =
+              window.scrollY || document.documentElement.scrollTop; //Lấy giá trị khi scroll:
+            const newCdDiskWidth = cdDiskWidth - scrollTop; //giá trị cd width sau khi scroll:
+            cdDisk.style.width = newCdDiskWidth + "px"; //set cd width mới vào lại css
+            cdDisk.style.width = newCdDiskWidth > 0 ? newCdDiskWidth + "px" : 0;
+            cdDisk.style.opacity = newCdDiskWidth / cdDiskWidth;
+          };
+        },
+        //3. Play / Pause / Seek / next /pre --> Ý tưởng
+        //3.1. phải lấy được song hiện tại
+        //3.2. load song vừa lấy lên dashBoard
+        //3.3. thao tác với các nút bấm
+        getCurrentSong: function (currentIndex) {
+          return this.songs[currentIndex];
+        },
+        loadCurrentSong: function (currentSong) {
+          headingSongName.textContent = currentSong.name;
+          cdDisk.style.backgroundImage = `url(${currentSong.image})`;
+          audio.src = `${currentSong.songUrl}`;
+        },
+        dashBoardContaction: function () {
+          const _this = this;
+
+          //3.1. get Current Song:
+          let currentSong = _this.getCurrentSong(this.currentIndex);
+
+          //3.2. Load current songs on dash Board:
+          _this.loadCurrentSong(currentSong);
+
+          //3.3.1 Play/ Pause --> idea là tạo 1 biến trung gian
+          //-Vấn đề 1: nếu biến đó true thì play, false thì pause
+          //tạo biến isPlaying ở trên
+          //-Vấn đề 2: vì khi playing nó sẽ chạy 3 việc (cd rotate, isPlaying change, btnPlay change)
+          //nên tách thành event riêng của audio so với event của click để tái sử dụng
+          btnPlay.onclick = function () {
+            if (_this.isPlaying) {
+              audio.pause();
+            } else {
+              audio.play();
+            }
+          };
+
+          //khi play thì làm 3 việc sau:
+          audio.onplay = function () {
+            btnPlay.classList.replace("fa-circle-play", "fa-circle-pause");
+            _this.isPlaying = true;
+            cdAnimation.play();
+            _this.activeSong();
+            _this.scrollSongIntoView();
+          };
+
+          //khi pause thì làm 3 việc sau:
+          audio.onpause = function () {
+            btnPlay.classList.replace("fa-circle-pause", "fa-circle-play");
+            _this.isPlaying = false;
+            cdAnimation.pause();
+          };
+
+          //Xử lý đĩa CD quay khi play/ dừng khi pause
+          const cdAnimation = cdDisk.animate(
+            [{ transform: "rotate(360deg)" }],
+            {
+              duration: 5000, //miniseconds
+              iterations: Infinity,
+            }
+          );
+          cdAnimation.pause();
+
+          //3.3.2. Tương tác trên progress Bar (seek)
+          //1. Tiến độ chạy bài hát trên progress Bar
+          audio.ontimeupdate = function () {
+            //lấy mốc thời gian hiện tài chia độ dài bài hát ra % tiến độ chạy,
+            //gán vào value của progressBar - thẻ input[type=range]
+            let songLength = audio.duration;
+            let currentTime = audio.currentTime;
+            let perCurrentTime = Math.round((currentTime / songLength) * 100);
+            if (perCurrentTime) {
+              progressBar.value = perCurrentTime;
+            }
+          };
+          //2. tương tác với progress Bar
+          progressBar.onchange = function () {
+            //lấy giá trị thời gian chạy bài hát hiện tại
+            //set ngược vào audio.currentTime
+            const currentProgressThumb =
+              (audio.duration / 100) * progressBar.value;
+            audio.currentTime = currentProgressThumb;
+          };
+
+          //3.3.3. Next Song
+          btnNext.onclick = function () {
+            //kiểm tra xem ramdom/repeat có đang bật không
+            if (_this.isRandom) {
+              randomSong();
+            } else {
+              _this.currentIndex += 1;
+
+              //khi next đến cuối thì quay lại bài đầu
+              if (_this.currentIndex > _this.songs.length - 1) {
+                _this.currentIndex = 0;
+              }
+
+              //Nhạc chạy
+              currentSong = _this.getCurrentSong(_this.currentIndex);
+              _this.loadCurrentSong(currentSong);
+              audio.play();
+            }
+          };
+
+          //3.3.4. Pre Song
+          btnPrev.onclick = function () {
+            if (_this.isRandom) {
+              randomSong();
+            } else {
+              _this.currentIndex -= 1;
+
+              //khi next đến cuối thì quay lại bài đầu
+              if (_this.currentIndex < 0) {
+                _this.currentIndex = _this.songs.length - 1;
+              }
+
+              //Nhạc chạy
+              currentSong = _this.getCurrentSong(_this.currentIndex);
+              _this.loadCurrentSong(currentSong);
+              audio.play();
+            }
+          };
+
+          //3.3.5 Random Song
+          //set trạng thái, nếu on thì khi bấm next/prev sẽ random Song
+          //vì vậy cần tách event click và 1 hàm chạy randomSong riêng
+          btnRandom.onclick = function () {
+            _this.isRandom = !_this.isRandom;
+            btnRandom.classList.toggle("btn-style", _this.isRandom);
+            _this.setConfig("isRandom", _this.isRandom);
+          };
+          function randomSong() {
+            let newIndex;
+            do {
+              newIndex = Math.floor(Math.random() * _this.songs.length);
+            } while (newIndex === _this.currentIndex);
+            _this.currentIndex = newIndex;
+
+            currentSong = _this.getCurrentSong(_this.currentIndex);
+            _this.loadCurrentSong(currentSong);
+            audio.play();
+          }
+
+          //3.3.6 Repeat Song
+          btnRepeat.onclick = function () {
+            _this.isRepeat = !_this.isRepeat;
+            btnRepeat.classList.toggle("btn-style", _this.isRepeat);
+            _this.setConfig("isRepeat", _this.isRepeat);
+          };
+
+          //3.3.7 When current song is ended
+          audio.onended = function () {
+            if (_this.isRepeat) {
+              audio.play();
+            } else {
+              btnNext.click();
+            }
+          };
+        },
+
+        //4. Song item was actived when playing song
+        //Khi nhạc chạy thì chạy hàm này trong event onplay luôn
+        activeSong: function () {
+          let songItems = $$(".song-list .song-items");
+          songItems.forEach((element, songIndex) => {
+            if (this.currentIndex === songIndex) {
+              element.classList.add("active-song");
+            } else {
+              element.classList.remove("active-song");
+            }
+          });
+        },
+
+        //5. Song item be into view when playing song
+        //Khi nhạc chạy thì chạy hàm này trong event onplay luôn
+        scrollSongIntoView: function () {
+          $(".song-list .active-song").scrollIntoView({
+            behavior: "smooth",
+            block: "end",
+          });
+        },
+
+        //6. contact with song
+        songListContaction: function () {
+          const _this = this;
+
+          //1. Cách 1: use loop, to determine the song list and handle
+          // $$('.song-list .song-items').forEach(function(element, songIndex) {
+          //    element.onclick = function() {
+          //       _this.currentIndex = songIndex;
+          //       let songClicked = _this.getCurrentSong(songIndex);
+          //       _this.loadCurrentSong(songClicked);
+          //       audio.play();
+          //    }
+          // });
+
+          //2. Cách 2: use target property when clicked on a song list
+          //add data-index and use method ".dataset.index" to determine the song
+          //NOTE: type of data-index is string
+          songList.onclick = function (e) {
+            const songOptionsButton = e.target.closest(".option");
+            const songItems = e.target.closest(".song-items");
+            const songOptionBox = $$(".song-option");
+
+            // Nếu bấm vào option thì hiện option
+            // Nếu bấm vào playing song thì ko lặp lại
+            //NOTE: use css pseudo-class :not to except the
+            // class which is not necessary
+
+              if (songOptionsButton) {
+                //open song options box
+                songOptionBox.forEach((boxElement, boxIndex) => {
+                  if (boxIndex === Number(songItems.dataset.index)) {
+                    boxElement.style.left =
+                      songOptionsButton.offsetLeft - 504 + "px";
+                    boxElement.style.top =
+                      songOptionsButton.offsetTop - 267 + "px";
+                    boxElement.style.display = "block";
+                  } else {
+                      boxElement.style.display = "none";
+                    };
+                });
+              };
+              if (songItems) {
+                console.log(songItems);
+                if (songOptionsButton) {
+                  //open song options box
+                  songOptionBox.forEach((boxElement, boxIndex) => {
+                    console.log(songItems.dataset.index);
+                    if (boxIndex === Number(songItems.dataset.index)) {
+                      boxElement.style.left =
+                        songOptionsButton.offsetLeft - 504 + "px";
+                      boxElement.style.top =
+                        songOptionsButton.offsetTop - 267 + "px";
+                      boxElement.style.display = "block";
+                    } else {
+                        boxElement.style.display = "none";
+                      };
+                  });
+                } else {
+                  songOptionBox.forEach((boxElement, boxIndex) => {
+                    boxElement.style.display = "none";
+                  });
+                  //active theme song and play song
+                  _this.currentIndex = Number(songItems.dataset.index);
+                  let songClicked = _this.getCurrentSong(_this.currentIndex);
+                  _this.loadCurrentSong(songClicked);
+                  audio.play();
+                }
+              }
+          };
+        },
+
+        start: function () {
+          this.loadConfig();
+          //render
+          this.render();
+          //CD zoom in when scroll down
+          this.scrollTop();
+          //Gom tất cả các tương tác trên dashBoard vào 1 hàm
+          this.dashBoardContaction();
+          //Tương tác với phần song list
+          this.songListContaction();
+        },
+      };
+
+      musicApp.start();
+    </script>
+  </body>
+</html>
